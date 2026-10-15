@@ -7,7 +7,7 @@ const sourceDir = path.join(here, 'content');
 const outputDir = path.join(here, 'dist');
 
 const banks = [
-  { id: 'software', name: '嵌入式软件', file: '嵌入式软件工程师秋招面试题库_FreeRTOS.md', accent: '#2563eb' },
+  { id: 'software', name: '嵌入式软件', file: '嵌入式软件工程师秋招完整问答版_FreeRTOS.md', accent: '#2563eb' },
   { id: 'hardware', name: '嵌入式硬件', file: '硬件工程师秋招面试题库.md', accent: '#e76f51' },
 ];
 
