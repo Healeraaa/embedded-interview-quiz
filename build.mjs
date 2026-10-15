@@ -20,10 +20,16 @@ function escapeHtml(value) {
 }
 
 function inlineMarkdown(value) {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
+  const codeSpans = [];
+  const protectedValue = value.replace(/`([^`]+)`/g, (_, code) => {
+    const index = codeSpans.push(code) - 1;
+    return `\uE000${index}\uE001`;
+  });
+
+  return escapeHtml(protectedValue)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\uE000(\d+)\uE001/g, (_, index) => '<code>' + escapeHtml(codeSpans[Number(index)]) + '</code>');
 }
 
 function renderMarkdown(markdown) {
@@ -151,6 +157,13 @@ function parseBank(bank) {
 
 const data = banks.map(parseBank);
 const total = data.reduce((sum, bank) => sum + bank.questions.length, 0);
+
+const pointerRegression = inlineMarkdown('`int *a[10]` 与 `int (*p)[10]`，解引用为 `*p`');
+if (!pointerRegression.includes('<code>int *a[10]</code>') ||
+    !pointerRegression.includes('<code>int (*p)[10]</code>') ||
+    !pointerRegression.includes('<code>*p</code>')) {
+  throw new Error('Inline-code regression: pointer asterisks were not preserved.');
+}
 
 const html = String.raw`<!doctype html>
 <html lang="zh-CN">
