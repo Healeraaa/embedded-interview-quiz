@@ -2,6 +2,8 @@
 
 将嵌入式软件和硬件秋招题库转换为可离线使用、可部署到 GitHub Pages 的单页答题网页。
 
+在线访问：https://healeraaa.github.io/embedded-interview-quiz/
+
 ## 本地使用
 
 直接打开 `dist/index.html`。掌握度记录保存在当前浏览器的本地存储中。
