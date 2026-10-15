@@ -194,8 +194,8 @@ const html = String.raw`<!doctype html>
     .field { margin-bottom:17px; }
     .field label { display:block; font-size:12px; font-weight:800; color:#536077; margin:0 0 7px; }
     .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    select,input[type="search"] { width:100%; border:1px solid var(--line); border-radius:11px; padding:10px 11px; color:var(--ink); background:white; outline:none; }
-    select:focus,input:focus { border-color:#8ab0fb; box-shadow:0 0 0 3px #dce8ff; }
+    select,input[type="search"],textarea { width:100%; border:1px solid var(--line); border-radius:11px; padding:10px 11px; color:var(--ink); background:white; outline:none; }
+    select:focus,input:focus,textarea:focus { border-color:#8ab0fb; box-shadow:0 0 0 3px #dce8ff; }
     .bank-tabs { display:grid; gap:8px; }
     .bank-tab { text-align:left; border:1px solid var(--line); border-radius:12px; background:#fff; padding:11px 12px; color:#465066; font-weight:700; }
     .bank-tab.active { color:#fff; border-color:transparent; background:var(--accent); }
@@ -223,6 +223,13 @@ const html = String.raw`<!doctype html>
     .rate[data-value="again"].selected { background:#c2413a; }
     .rate[data-value="fuzzy"].selected { background:#c48413; }
     .rate[data-value="know"].selected { background:var(--green); }
+    .notes { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:14px; background:#f8fafc; }
+    .notes-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:10px; }
+    .notes-title { font-size:14px; font-weight:800; color:#40516e; }
+    .notes-status { color:var(--muted); font-size:12px; }
+    .notes textarea { display:block; min-height:112px; resize:vertical; font:inherit; line-height:1.65; }
+    .data-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    .data-actions button { border:1px solid var(--line); border-radius:10px; padding:9px 8px; background:#fff; color:#465066; font-weight:700; }
     .nav { margin-top:28px; padding-top:20px; border-top:1px solid var(--line); display:flex; gap:10px; align-items:center; }
     .nav button { border:1px solid var(--line); border-radius:11px; padding:10px 15px; background:white; color:var(--ink); font-weight:700; }
     .nav button:hover,.rate:hover { border-color:#aeb9ca; }
@@ -232,7 +239,7 @@ const html = String.raw`<!doctype html>
     .kbd { border:1px solid #cfd5de; border-bottom-width:2px; border-radius:5px; padding:1px 5px; background:#fff; color:#606b7e; font-size:11px; }
     @keyframes fade { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:none } }
     @media (max-width:780px) { .app{width:min(100% - 20px,680px);padding-top:20px} header{align-items:flex-start;flex-direction:column}.progress-box{width:100%;text-align:left}.layout{grid-template-columns:1fr}.panel{position:static}.bank-tabs{grid-template-columns:1fr 1fr}.card{min-height:520px;padding:24px;border-radius:18px}.question{margin:23px 0}.position{margin-left:0;width:100%;order:-1}.nav{flex-wrap:wrap}.nav button{flex:1}.nav .random{flex-basis:100%} }
-    @media print { body{background:white}.panel,header,.nav,.reveal,.rating{display:none!important}.layout{display:block}.card{box-shadow:none;border:0;padding:0}.answer{display:block}.question{font-size:24px} }
+    @media print { body{background:white}.panel,header,.nav,.reveal,.rating,.notes{display:none!important}.layout{display:block}.card{box-shadow:none;border:0;padding:0}.answer{display:block}.question{font-size:24px} }
   </style>
 </head>
 <body>
@@ -250,6 +257,7 @@ const html = String.raw`<!doctype html>
         <div class="field"><label for="starSelect">重要程度</label><select id="starSelect"><option value="0">全部星级</option><option value="5">★★★★★ 五星必问</option><option value="4">★★★★ 四星高频</option><option value="3">★★★ 三星常见</option><option value="2">★★ 两星</option><option value="1">★ 一星</option></select></div>
         <div class="field"><label for="statusSelect">掌握状态</label><select id="statusSelect"><option value="all">全部状态</option><option value="unrated">尚未标记</option><option value="again">不会</option><option value="fuzzy">模糊</option><option value="know">会</option></select></div>
         <div class="field"><label for="searchInput">搜索题目和答案</label><input id="searchInput" type="search" placeholder="例如：优先级反转"></div>
+        <div class="field"><label>个人笔记备份</label><div class="data-actions"><button id="exportNotes" type="button">导出笔记</button><button id="importNotes" type="button">导入笔记</button></div><input id="notesFile" type="file" accept="application/json,.json" hidden></div>
         <div class="summary" id="filterSummary"></div>
       </aside>
       <section class="card" id="card" aria-live="polite">
@@ -259,6 +267,7 @@ const html = String.raw`<!doctype html>
           <button class="reveal" id="revealButton" type="button">查看答案 <span class="kbd">空格</span></button>
           <div class="answer" id="answer"></div>
           <div class="rating" id="rating"><button class="rate" data-value="again">不会</button><button class="rate" data-value="fuzzy">模糊</button><button class="rate" data-value="know">会</button></div>
+          <div class="notes"><div class="notes-head"><span class="notes-title">个人笔记</span><span class="notes-status" id="notesStatus">自动保存在此浏览器</span></div><textarea id="notesText" placeholder="写下自己的理解、易错点或需要追问的内容……"></textarea></div>
           <div class="spacer"></div>
           <nav class="nav"><button id="previousButton">← 上一题</button><button id="nextButton">下一题 →</button><button class="random" id="randomButton">随机一题</button><span class="position" id="position"></span></nav>
         </div>
@@ -275,6 +284,7 @@ const html = String.raw`<!doctype html>
     function storedObject(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
     const ratings = storedObject('embedded-interview-ratings-v1');
     const reviewSchedule = storedObject('embedded-interview-review-schedule-v1');
+    const notes = storedObject('embedded-interview-notes-v1');
     let migratedReviewSchedule = false;
     allQuestions.forEach(q => {
       if (!reviewSchedule[q.id] && (ratings[q.id] === 'again' || ratings[q.id] === 'fuzzy')) {
@@ -284,7 +294,7 @@ const html = String.raw`<!doctype html>
     });
     if (migratedReviewSchedule) localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
     const $ = id => document.getElementById(id);
-    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
+    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
 
     function activeBank() { return BANKS.find(bank => bank.id === state.bank); }
     function hashText(value) {
@@ -333,7 +343,7 @@ const html = String.raw`<!doctype html>
         (state.section === 'all' || q.section === state.section) &&
         (!state.stars || q.stars === state.stars) &&
         (state.status === 'all' || (state.status === 'unrated' ? !ratings[q.id] : ratings[q.id] === state.status)) &&
-        (!term || (q.title + ' ' + q.section + ' ' + q.answerHtml.replace(/<[^>]*>/g,' ')).toLowerCase().includes(term))
+        (!term || (q.title + ' ' + q.section + ' ' + q.answerHtml.replace(/<[^>]*>/g,' ') + ' ' + (notes[q.id] || '')).toLowerCase().includes(term))
       );
     }
     function populateSections() {
@@ -382,6 +392,8 @@ const html = String.raw`<!doctype html>
       elements.starText.textContent = '★'.repeat(q.stars);
       elements.question.textContent = q.title;
       elements.answer.innerHTML = q.answerHtml;
+      elements.notesText.value = notes[q.id] || '';
+      elements.notesStatus.textContent = notes[q.id] ? '已保存' : '自动保存在此浏览器';
       elements.answer.classList.toggle('open',state.revealed);
       elements.rating.classList.toggle('open',state.revealed);
       elements.reveal.innerHTML = state.revealed ? '收起答案 <span class="kbd">空格</span>' : '查看答案 <span class="kbd">空格</span>';
@@ -405,7 +417,11 @@ const html = String.raw`<!doctype html>
     elements.next.addEventListener('click',()=>move(1));
     elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;render()}});
     elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;ratings[q.id]=value;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));render()});
-    document.addEventListener('keydown',event=>{if(event.target.matches('input,select'))return;if(event.code==='Space'){event.preventDefault();state.revealed=!state.revealed;render()}if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1)});
+    elements.notesText.addEventListener('input',()=>{const q=filtered()[state.index];if(!q)return;const value=elements.notesText.value;if(value.trim()){notes[q.id]=value}else{delete notes[q.id]}localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));elements.notesStatus.textContent='已保存';});
+    elements.exportNotes.addEventListener('click',()=>{const payload={version:1,exportedAt:new Date().toISOString(),notes};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='嵌入式面试题个人笔记.json';link.click();URL.revokeObjectURL(link.href)});
+    elements.importNotes.addEventListener('click',()=>elements.notesFile.click());
+    elements.notesFile.addEventListener('change',async()=>{const file=elements.notesFile.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const imported=parsed && parsed.notes && typeof parsed.notes==='object' ? parsed.notes : parsed;if(!imported || Array.isArray(imported) || typeof imported!=='object')throw new Error('格式错误');Object.keys(notes).forEach(key=>delete notes[key]);Object.entries(imported).forEach(([key,value])=>{if(typeof value==='string'&&value.trim())notes[key]=value});localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));render();alert('已导入 '+Object.keys(notes).length+' 条个人笔记。')}catch(error){alert('导入失败：请选择由本网页导出的 JSON 笔记文件。')}finally{elements.notesFile.value=''}});
+    document.addEventListener('keydown',event=>{if(event.target.matches('input,select,textarea'))return;if(event.code==='Space'){event.preventDefault();state.revealed=!state.revealed;render()}if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1)});
     populateSections(); populatePlanDays(); render();
   </script>
 </body>
