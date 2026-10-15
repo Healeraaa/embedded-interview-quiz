@@ -193,6 +193,7 @@ const html = String.raw`<!doctype html>
     .panel { padding:20px; position:sticky; top:18px; }
     .field { margin-bottom:17px; }
     .field label { display:block; font-size:12px; font-weight:800; color:#536077; margin:0 0 7px; }
+    .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     select,input[type="search"] { width:100%; border:1px solid var(--line); border-radius:11px; padding:10px 11px; color:var(--ink); background:white; outline:none; }
     select:focus,input:focus { border-color:#8ab0fb; box-shadow:0 0 0 3px #dce8ff; }
     .bank-tabs { display:grid; gap:8px; }
@@ -243,6 +244,8 @@ const html = String.raw`<!doctype html>
     <div class="layout">
       <aside class="panel">
         <div class="field"><label>题库</label><div class="bank-tabs" id="bankTabs"></div></div>
+        <div class="field"><label for="modeSelect">学习模式</label><select id="modeSelect"><option value="all">自由练习</option><option value="plan">按天学习</option><option value="review">不会题复习</option></select></div>
+        <div class="field" id="planControls" hidden><label>学习计划</label><div class="plan-grid"><select id="planDays" aria-label="计划天数"><option value="7">7 天</option><option value="14">14 天</option><option value="21">21 天</option><option value="30">30 天</option></select><select id="planDay" aria-label="学习第几天"></select></div></div>
         <div class="field"><label for="sectionSelect">章节</label><select id="sectionSelect"></select></div>
         <div class="field"><label for="starSelect">重要程度</label><select id="starSelect"><option value="0">全部星级</option><option value="5">★★★★★ 五星必问</option><option value="4">★★★★ 四星高频</option><option value="3">★★★ 三星常见</option><option value="2">★★ 两星</option><option value="1">★ 一星</option></select></div>
         <div class="field"><label for="statusSelect">掌握状态</label><select id="statusSelect"><option value="all">全部状态</option><option value="unrated">尚未标记</option><option value="again">不会</option><option value="fuzzy">模糊</option><option value="know">会</option></select></div>
@@ -259,22 +262,30 @@ const html = String.raw`<!doctype html>
           <div class="spacer"></div>
           <nav class="nav"><button id="previousButton">← 上一题</button><button id="nextButton">下一题 →</button><button class="random" id="randomButton">随机一题</button><span class="position" id="position"></span></nav>
         </div>
-        <div class="empty" id="empty" hidden><h2>没有匹配的题目</h2><p>请调整章节、星级、状态或搜索词。</p></div>
+        <div class="empty" id="empty" hidden><h2 id="emptyTitle">没有匹配的题目</h2><p id="emptyText">请调整章节、星级、状态或搜索词。</p></div>
       </section>
     </div>
   </main>
   <script>
     const BANKS = ${JSON.stringify(data)};
     const allQuestions = BANKS.flatMap(bank => bank.questions);
-    const state = { bank:'software', section:'all', stars:0, status:'all', search:'', index:0, revealed:false };
+    const savedPlanDays = Number(localStorage.getItem('embedded-interview-plan-days-v1')) || 14;
+    const savedPlanDay = Number(localStorage.getItem('embedded-interview-plan-day-v1')) || 1;
+    const state = { bank:'software', mode:'all', planDays:[7,14,21,30].includes(savedPlanDays) ? savedPlanDays : 14, planDay:savedPlanDay, section:'all', stars:0, status:'all', search:'', index:0, revealed:false };
     const ratings = JSON.parse(localStorage.getItem('embedded-interview-ratings-v1') || '{}');
     const $ = id => document.getElementById(id);
-    const elements = { tabs:$('bankTabs'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty') };
+    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
 
     function activeBank() { return BANKS.find(bank => bank.id === state.bank); }
+    function modeQuestions() {
+      const questions = activeBank().questions;
+      if (state.mode === 'review') return questions.filter(q => ratings[q.id] === 'again');
+      if (state.mode === 'plan') return questions.filter((q,index) => Math.floor(index * state.planDays / questions.length) + 1 === state.planDay);
+      return questions;
+    }
     function filtered() {
       const term = state.search.trim().toLowerCase();
-      return activeBank().questions.filter(q =>
+      return modeQuestions().filter(q =>
         (state.section === 'all' || q.section === state.section) &&
         (!state.stars || q.stars === state.stars) &&
         (state.status === 'all' || (state.status === 'unrated' ? !ratings[q.id] : ratings[q.id] === state.status)) &&
@@ -285,6 +296,12 @@ const html = String.raw`<!doctype html>
       const sections = [...new Set(activeBank().questions.map(q => q.section))];
       elements.section.innerHTML = '<option value="all">全部章节</option>' + sections.map(s => '<option value="' + s.replaceAll('"','&quot;') + '">' + s + '</option>').join('');
       elements.section.value = state.section;
+    }
+    function populatePlanDays() {
+      state.planDay = Math.max(1,Math.min(state.planDays,state.planDay));
+      elements.planDays.value = String(state.planDays);
+      elements.planDay.innerHTML = Array.from({length:state.planDays},(_,i) => '<option value="' + (i+1) + '">第 ' + (i+1) + ' 天</option>').join('');
+      elements.planDay.value = String(state.planDay);
     }
     function renderTabs() {
       elements.tabs.innerHTML = BANKS.map(bank => '<button class="bank-tab ' + (bank.id === state.bank ? 'active' : '') + '" style="--accent:' + bank.accent + '" data-bank="' + bank.id + '">' + bank.name + '<br><small>' + bank.questions.length + ' 道题</small></button>').join('');
@@ -297,11 +314,17 @@ const html = String.raw`<!doctype html>
     function render() {
       renderTabs(); updateProgress();
       const list = filtered();
+      const reviewCount = activeBank().questions.filter(q => ratings[q.id] === 'again').length;
       if (state.index >= list.length) state.index = Math.max(0,list.length - 1);
-      elements.summary.textContent = '当前筛选：' + list.length + ' 道题；本题库共 ' + activeBank().questions.length + ' 道。';
+      elements.planControls.hidden = state.mode !== 'plan';
+      elements.status.disabled = state.mode === 'review';
+      const modeLabel = state.mode === 'plan' ? state.planDays + ' 天计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '不会题复习' : '自由练习';
+      elements.summary.textContent = modeLabel + '：当前 ' + list.length + ' 道；本题库待复习 ' + reviewCount + ' 道。';
       if (!list.length) {
         elements.quiz.hidden = true;
         elements.empty.hidden = false;
+        elements.emptyTitle.textContent = state.mode === 'review' ? '复习池已经清空' : '没有匹配的题目';
+        elements.emptyText.textContent = state.mode === 'review' ? '把题目标记为“不会”，它就会自动出现在这里。' : '请调整学习天数、章节、星级、状态或搜索词。';
         return;
       }
       elements.quiz.hidden = false;
@@ -322,7 +345,10 @@ const html = String.raw`<!doctype html>
     }
     function resetQuestion() { state.index = 0; state.revealed = false; render(); }
     function move(delta) { const list = filtered(); state.index = Math.max(0,Math.min(list.length - 1,state.index + delta)); state.revealed = false; render(); window.scrollTo({top:0,behavior:'smooth'}); }
-    elements.tabs.addEventListener('click', event => { const btn=event.target.closest('[data-bank]'); if(!btn)return; state.bank=btn.dataset.bank; state.section='all'; populateSections(); resetQuestion(); });
+    elements.tabs.addEventListener('click', event => { const btn=event.target.closest('[data-bank]'); if(!btn)return; state.bank=btn.dataset.bank; state.section='all'; populateSections(); populatePlanDays(); resetQuestion(); });
+    elements.mode.addEventListener('change',e=>{state.mode=e.target.value;if(state.mode==='review'){state.status='all';elements.status.value='all'}resetQuestion()});
+    elements.planDays.addEventListener('change',e=>{state.planDays=Number(e.target.value);state.planDay=1;localStorage.setItem('embedded-interview-plan-days-v1',String(state.planDays));localStorage.setItem('embedded-interview-plan-day-v1','1');populatePlanDays();resetQuestion()});
+    elements.planDay.addEventListener('change',e=>{state.planDay=Number(e.target.value);localStorage.setItem('embedded-interview-plan-day-v1',String(state.planDay));resetQuestion()});
     elements.section.addEventListener('change',e=>{state.section=e.target.value;resetQuestion()});
     elements.stars.addEventListener('change',e=>{state.stars=Number(e.target.value);resetQuestion()});
     elements.status.addEventListener('change',e=>{state.status=e.target.value;resetQuestion()});
@@ -333,7 +359,7 @@ const html = String.raw`<!doctype html>
     elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;render()}});
     elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];ratings[q.id]=btn.dataset.value;localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));render()});
     document.addEventListener('keydown',event=>{if(event.target.matches('input,select'))return;if(event.code==='Space'){event.preventDefault();state.revealed=!state.revealed;render()}if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1)});
-    populateSections(); render();
+    populateSections(); populatePlanDays(); render();
   </script>
 </body>
 </html>`;
