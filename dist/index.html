@@ -77,7 +77,7 @@
     <div class="layout">
       <aside class="panel">
         <div class="field"><label>题库</label><div class="bank-tabs" id="bankTabs"></div></div>
-        <div class="field"><label for="modeSelect">学习模式</label><select id="modeSelect"><option value="all">自由练习</option><option value="plan">按天学习</option><option value="review">不会题复习</option></select></div>
+        <div class="field"><label for="modeSelect">学习模式</label><select id="modeSelect"><option value="all">自由练习</option><option value="plan">按天学习</option><option value="review">复习队列</option></select></div>
         <div class="field" id="planControls" hidden><label>学习计划</label><div class="plan-grid"><select id="planDays" aria-label="计划天数"><option value="7">7 天</option><option value="14">14 天</option><option value="21">21 天</option><option value="30">30 天</option></select><select id="planDay" aria-label="学习第几天"></select></div></div>
         <div class="field"><label for="sectionSelect">章节</label><select id="sectionSelect"></select></div>
         <div class="field"><label for="starSelect">重要程度</label><select id="starSelect"><option value="0">全部星级</option><option value="5">★★★★★ 五星必问</option><option value="4">★★★★ 四星高频</option><option value="3">★★★ 三星常见</option><option value="2">★★ 两星</option><option value="1">★ 一星</option></select></div>
@@ -87,7 +87,7 @@
       </aside>
       <section class="card" id="card" aria-live="polite">
         <div id="quiz">
-          <div class="meta"><span class="tag" id="sectionTag"></span><span id="bankName"></span><span class="stars" id="stars"></span></div>
+          <div class="meta"><span class="tag" id="sectionTag"></span><span class="tag" id="reviewTag" hidden></span><span id="bankName"></span><span class="stars" id="stars"></span></div>
           <h2 class="question" id="question"></h2>
           <button class="reveal" id="revealButton" type="button">查看答案 <span class="kbd">空格</span></button>
           <div class="answer" id="answer"></div>
@@ -105,15 +105,30 @@
     const savedPlanDays = Number(localStorage.getItem('embedded-interview-plan-days-v1')) || 14;
     const savedPlanDay = Number(localStorage.getItem('embedded-interview-plan-day-v1')) || 1;
     const state = { bank:'software', mode:'all', planDays:[7,14,21,30].includes(savedPlanDays) ? savedPlanDays : 14, planDay:savedPlanDay, section:'all', stars:0, status:'all', search:'', index:0, revealed:false };
-    const ratings = JSON.parse(localStorage.getItem('embedded-interview-ratings-v1') || '{}');
+    function storedObject(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
+    const ratings = storedObject('embedded-interview-ratings-v1');
+    const reviewSchedule = storedObject('embedded-interview-review-schedule-v1');
+    let migratedReviewSchedule = false;
+    allQuestions.forEach(q => {
+      if (!reviewSchedule[q.id] && (ratings[q.id] === 'again' || ratings[q.id] === 'fuzzy')) {
+        reviewSchedule[q.id] = { rating:ratings[q.id], dueDay:ratings[q.id] === 'again' ? 2 : 4 };
+        migratedReviewSchedule = true;
+      }
+    });
+    if (migratedReviewSchedule) localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
     const $ = id => document.getElementById(id);
-    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
+    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
 
     function activeBank() { return BANKS.find(bank => bank.id === state.bank); }
     function modeQuestions() {
       const questions = activeBank().questions;
-      if (state.mode === 'review') return questions.filter(q => ratings[q.id] === 'again');
-      if (state.mode === 'plan') return questions.filter((q,index) => Math.floor(index * state.planDays / questions.length) + 1 === state.planDay);
+      if (state.mode === 'review') return questions.filter(q => reviewSchedule[q.id]).sort((a,b) => reviewSchedule[a.id].dueDay - reviewSchedule[b.id].dueDay);
+      if (state.mode === 'plan') {
+        const assigned = questions.filter((q,index) => Math.floor(index * state.planDays / questions.length) + 1 === state.planDay);
+        const due = questions.filter(q => reviewSchedule[q.id] && Math.min(reviewSchedule[q.id].dueDay,state.planDays) <= state.planDay);
+        const dueIds = new Set(due.map(q => q.id));
+        return [...due,...assigned.filter(q => !dueIds.has(q.id))];
+      }
       return questions;
     }
     function filtered() {
@@ -147,23 +162,26 @@
     function render() {
       renderTabs(); updateProgress();
       const list = filtered();
-      const reviewCount = activeBank().questions.filter(q => ratings[q.id] === 'again').length;
+      const reviewCount = activeBank().questions.filter(q => reviewSchedule[q.id]).length;
       if (state.index >= list.length) state.index = Math.max(0,list.length - 1);
       elements.planControls.hidden = state.mode !== 'plan';
       elements.status.disabled = state.mode === 'review';
-      const modeLabel = state.mode === 'plan' ? state.planDays + ' 天计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '不会题复习' : '自由练习';
+      const modeLabel = state.mode === 'plan' ? state.planDays + ' 天计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '复习队列' : '自由练习';
       elements.summary.textContent = modeLabel + '：当前 ' + list.length + ' 道；本题库待复习 ' + reviewCount + ' 道。';
       if (!list.length) {
         elements.quiz.hidden = true;
         elements.empty.hidden = false;
         elements.emptyTitle.textContent = state.mode === 'review' ? '复习池已经清空' : '没有匹配的题目';
-        elements.emptyText.textContent = state.mode === 'review' ? '把题目标记为“不会”，它就会自动出现在这里。' : '请调整学习天数、章节、星级、状态或搜索词。';
+        elements.emptyText.textContent = state.mode === 'review' ? '标记为“不会”或“模糊”的题会自动出现在这里。' : '请调整学习天数、章节、星级、状态或搜索词。';
         return;
       }
       elements.quiz.hidden = false;
       elements.empty.hidden = true;
       const q = list[state.index];
       elements.tag.textContent = q.section;
+      const review = reviewSchedule[q.id];
+      elements.reviewTag.hidden = !review;
+      elements.reviewTag.textContent = review ? '复习题 · 第 ' + Math.min(review.dueDay,state.planDays) + ' 天到期' : '';
       elements.bank.textContent = activeBank().name + ' · ' + q.number;
       elements.starText.textContent = '★'.repeat(q.stars);
       elements.question.textContent = q.title;
@@ -190,7 +208,7 @@
     elements.previous.addEventListener('click',()=>move(-1));
     elements.next.addEventListener('click',()=>move(1));
     elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;render()}});
-    elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];ratings[q.id]=btn.dataset.value;localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));render()});
+    elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;ratings[q.id]=value;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));render()});
     document.addEventListener('keydown',event=>{if(event.target.matches('input,select'))return;if(event.code==='Space'){event.preventDefault();state.revealed=!state.revealed;render()}if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1)});
     populateSections(); populatePlanDays(); render();
   </script>
