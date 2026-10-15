@@ -120,11 +120,40 @@
     const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText') };
 
     function activeBank() { return BANKS.find(bank => bank.id === state.bank); }
+    function hashText(value) {
+      let hash = 2166136261;
+      for (let i=0;i<value.length;i++) { hash ^= value.charCodeAt(i); hash = Math.imul(hash,16777619); }
+      return hash >>> 0;
+    }
+    function shuffled(items,seed) {
+      const result = [...items];
+      let value = seed || 1;
+      for (let i=result.length-1;i>0;i--) {
+        value = (Math.imul(value,1664525) + 1013904223) >>> 0;
+        const j = value % (i+1);
+        [result[i],result[j]] = [result[j],result[i]];
+      }
+      return result;
+    }
+    function assignedQuestionsForDay(questions) {
+      const grouped = new Map();
+      questions.forEach(q => { if (!grouped.has(q.section)) grouped.set(q.section,[]); grouped.get(q.section).push(q); });
+      const assigned = [];
+      grouped.forEach((chapter,section) => {
+        const seedBase = activeBank().id + '|' + section + '|' + state.planDays;
+        const chapterQuestions = shuffled(chapter,hashText(seedBase));
+        const dayOffset = hashText(seedBase + '|offset') % state.planDays;
+        chapterQuestions.forEach((q,index) => {
+          if ((index + dayOffset) % state.planDays + 1 === state.planDay) assigned.push(q);
+        });
+      });
+      return shuffled(assigned,hashText(activeBank().id + '|day|' + state.planDays + '|' + state.planDay));
+    }
     function modeQuestions() {
       const questions = activeBank().questions;
       if (state.mode === 'review') return questions.filter(q => reviewSchedule[q.id]).sort((a,b) => reviewSchedule[a.id].dueDay - reviewSchedule[b.id].dueDay);
       if (state.mode === 'plan') {
-        const assigned = questions.filter((q,index) => Math.floor(index * state.planDays / questions.length) + 1 === state.planDay);
+        const assigned = assignedQuestionsForDay(questions);
         const due = questions.filter(q => reviewSchedule[q.id] && Math.min(reviewSchedule[q.id].dueDay,state.planDays) <= state.planDay);
         const dueIds = new Set(due.map(q => q.id));
         return [...due,...assigned.filter(q => !dueIds.has(q.id))];
@@ -166,7 +195,7 @@
       if (state.index >= list.length) state.index = Math.max(0,list.length - 1);
       elements.planControls.hidden = state.mode !== 'plan';
       elements.status.disabled = state.mode === 'review';
-      const modeLabel = state.mode === 'plan' ? state.planDays + ' 天计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '复习队列' : '自由练习';
+      const modeLabel = state.mode === 'plan' ? state.planDays + ' 天分层计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '复习队列' : '自由练习';
       elements.summary.textContent = modeLabel + '：当前 ' + list.length + ' 道；本题库待复习 ' + reviewCount + ' 道。';
       if (!list.length) {
         elements.quiz.hidden = true;
