@@ -6,7 +6,7 @@
 
 ## 本地使用
 
-直接打开 `dist/index.html`。掌握度记录保存在当前浏览器的本地存储中。
+直接打开 `dist/index.html`。未登录时学习记录保存在当前浏览器；登录后会同步到 Supabase。
 
 ## 更新题库
 
@@ -46,7 +46,9 @@ https://你的用户名.github.io/embedded-interview-quiz/
 - 题目与答案全文搜索
 - 点击或空格键显示答案
 - 随机题、上一题、下一题
-- “不会 / 模糊 / 会”本地记录
+- 邮箱注册和登录
+- “不会 / 模糊 / 会”、复习计划及个人笔记跨设备同步
+- 断网或未登录时继续使用浏览器本地记录
 
-注意：学习记录保存在浏览器本地，因此手机和电脑之间不会自动同步。
+Supabase 数据表与 RLS 权限定义保存在 `supabase/schema.sql`。前端仅使用可公开的 Project URL 和 Publishable key；不要将数据库密码或 Secret key 提交到仓库。
 
