@@ -24,6 +24,8 @@
     [hidden] { display:none!important; }
     .panel,.card { background:rgba(255,253,250,.94); border:1px solid rgba(255,255,255,.8); border-radius:22px; box-shadow:var(--shadow); }
     .panel { padding:20px; position:sticky; top:18px; }
+    .filter-toggle { display:none; width:100%; align-items:center; justify-content:space-between; border:0; background:transparent; color:var(--ink); padding:3px 2px; font-weight:800; }
+    .filter-toggle span { color:var(--blue); font-size:13px; }
     .field { margin-bottom:17px; }
     .field label { display:block; font-size:12px; font-weight:800; color:#536077; margin:0 0 7px; }
     .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -43,6 +45,8 @@
     .card { min-height:580px; padding:clamp(24px,5vw,56px); display:flex; flex-direction:column; }
     #quiz { min-height:470px; display:flex; flex:1; flex-direction:column; }
     .meta { display:flex; align-items:center; flex-wrap:wrap; gap:9px; color:var(--muted); font-size:13px; }
+    .question-jump { display:flex; align-items:center; gap:7px; margin-left:auto; color:#536077; font-weight:700; }
+    .question-jump select { width:min(260px,42vw); padding:7px 9px; font-size:13px; }
     .tag { padding:5px 9px; border-radius:99px; background:#edf2fa; color:#40516e; font-weight:700; }
     .stars { color:#e9a31b; letter-spacing:.04em; }
     .question { font-size:clamp(24px,3.3vw,38px); line-height:1.35; letter-spacing:-.025em; margin:28px 0; }
@@ -94,7 +98,7 @@
     .empty { margin:auto; text-align:center; color:var(--muted); }
     .kbd { border:1px solid #cfd5de; border-bottom-width:2px; border-radius:5px; padding:1px 5px; background:#fff; color:#606b7e; font-size:11px; }
     @keyframes fade { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:none } }
-    @media (max-width:780px) { .app{width:min(100% - 20px,680px);padding-top:20px} header{align-items:flex-start;flex-direction:column}.progress-box{width:100%;text-align:left}.layout{grid-template-columns:1fr}.panel{position:static}.bank-tabs{grid-template-columns:1fr 1fr}.card{min-height:520px;padding:24px;border-radius:18px}.question{margin:23px 0}.position{margin-left:0;width:100%;order:-1}.nav{flex-wrap:wrap}.nav button{flex:1}.nav .random{flex-basis:100%} }
+    @media (max-width:780px) { .app{width:min(100% - 20px,680px);padding-top:16px} header{align-items:flex-start;flex-direction:column;margin-bottom:14px}.progress-box{width:100%;text-align:left}.layout{grid-template-columns:1fr;gap:12px}.panel{position:static;padding:12px 14px;border-radius:16px}.filter-toggle{display:flex}.panel-body{display:none;margin-top:16px}.panel.expanded .panel-body{display:block}.bank-tabs{grid-template-columns:1fr 1fr}.card{min-height:520px;padding:22px;border-radius:18px}.question{margin:21px 0}.question-jump{width:100%;margin-left:0}.question-jump select{width:auto;min-width:0;flex:1}.position{margin-left:0;width:100%;order:-1}.nav{flex-wrap:wrap}.nav button{flex:1}.nav .random{flex-basis:100%} }
     @media print { body{background:white}.panel,header,.nav,.reveal,.rating,.notes{display:none!important}.layout{display:block}.card{box-shadow:none;border:0;padding:0}.answer{display:block}.question{font-size:24px} }
   </style>
 </head>
@@ -105,7 +109,9 @@
       <div class="progress-box"><div class="progress-label"><span>已掌握进度</span><strong id="progressText">0 / 376</strong></div><div class="progress-track"><div class="progress-fill" id="progressFill"></div></div></div>
     </header>
     <div class="layout">
-      <aside class="panel">
+      <aside class="panel" id="panel">
+        <button class="filter-toggle" id="filterToggle" type="button" aria-expanded="false">练习设置与账号 <span id="filterToggleText">展开 ↓</span></button>
+        <div class="panel-body" id="panelBody">
         <div class="account-box"><div class="account-head"><span class="sync-dot" id="syncDot"></span><span id="syncTitle">仅保存在本机</span></div><div class="sync-detail" id="syncDetail">登录后可在电脑和手机之间同步学习记录。</div><button id="accountButton" type="button">登录并同步</button></div>
         <div class="field"><label>题库</label><div class="bank-tabs" id="bankTabs"></div></div>
         <div class="field"><label for="modeSelect">学习模式</label><select id="modeSelect"><option value="all">自由练习</option><option value="plan">按天学习</option><option value="review">复习队列</option></select></div>
@@ -116,10 +122,11 @@
         <div class="field"><label for="searchInput">搜索题目和答案</label><input id="searchInput" type="search" placeholder="例如：优先级反转"></div>
         <div class="field"><label>个人笔记备份</label><div class="data-actions"><button id="exportNotes" type="button">导出笔记</button><button id="importNotes" type="button">导入笔记</button></div><input id="notesFile" type="file" accept="application/json,.json" hidden></div>
         <div class="summary" id="filterSummary"></div>
+        </div>
       </aside>
       <section class="card" id="card" aria-live="polite">
         <div id="quiz">
-          <div class="meta"><span class="tag" id="sectionTag"></span><span class="tag" id="reviewTag" hidden></span><span id="bankName"></span><span class="stars" id="stars"></span></div>
+          <div class="meta"><span class="tag" id="sectionTag"></span><span class="tag" id="reviewTag" hidden></span><span id="bankName"></span><span class="stars" id="stars"></span><label class="question-jump" id="questionJumpWrap" hidden><span>本日题目</span><select id="questionJump" aria-label="选择本日第几题"></select></label></div>
           <h2 class="question" id="question"></h2>
           <button class="reveal" id="revealButton" type="button">查看答案 <span class="kbd">空格</span></button>
           <div class="answer" id="answer"></div>
@@ -156,7 +163,7 @@
     });
     if (migratedReviewSchedule) localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
     const $ = id => document.getElementById(id);
-    const elements = { tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText'), syncDot:$('syncDot'), syncTitle:$('syncTitle'), syncDetail:$('syncDetail'), accountButton:$('accountButton'), authDialog:$('authDialog'), authClose:$('authClose'), authFields:$('authFields'), authEmail:$('authEmail'), authPassword:$('authPassword'), signIn:$('signInButton'), signUp:$('signUpButton'), signedFields:$('signedFields'), signedEmail:$('signedEmail'), syncNow:$('syncNowButton'), signOut:$('signOutButton'), authMessage:$('authMessage') };
+    const elements = { panel:$('panel'), filterToggle:$('filterToggle'), filterToggleText:$('filterToggleText'), panelBody:$('panelBody'), tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), questionJumpWrap:$('questionJumpWrap'), questionJump:$('questionJump'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText'), syncDot:$('syncDot'), syncTitle:$('syncTitle'), syncDetail:$('syncDetail'), accountButton:$('accountButton'), authDialog:$('authDialog'), authClose:$('authClose'), authFields:$('authFields'), authEmail:$('authEmail'), authPassword:$('authPassword'), signIn:$('signInButton'), signUp:$('signUpButton'), signedFields:$('signedFields'), signedEmail:$('signedEmail'), syncNow:$('syncNowButton'), signOut:$('signOutButton'), authMessage:$('authMessage') };
     const cloud = window.supabase ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
     let cloudUser = null;
     let loadedCloudUser = '';
@@ -288,6 +295,7 @@
       elements.status.disabled = state.mode === 'review';
       const modeLabel = state.mode === 'plan' ? state.planDays + ' 天分层计划 · 第 ' + state.planDay + ' 天' : state.mode === 'review' ? '复习队列' : '自由练习';
       elements.summary.textContent = modeLabel + '：当前 ' + list.length + ' 道；本题库待复习 ' + reviewCount + ' 道。';
+      elements.questionJumpWrap.hidden = state.mode !== 'plan' || !list.length;
       if (!list.length) {
         elements.quiz.hidden = true;
         elements.empty.hidden = false;
@@ -298,6 +306,10 @@
       elements.quiz.hidden = false;
       elements.empty.hidden = true;
       const q = list[state.index];
+      if (state.mode === 'plan') {
+        elements.questionJump.replaceChildren(...list.map((item,index)=>new Option('第 '+(index+1)+' 题 · '+item.title,String(index))));
+        elements.questionJump.value=String(state.index);
+      }
       elements.tag.textContent = q.section;
       const review = reviewSchedule[q.id];
       elements.reviewTag.hidden = !review;
@@ -330,6 +342,8 @@
     elements.previous.addEventListener('click',()=>move(-1));
     elements.next.addEventListener('click',()=>move(1));
     elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;render()}});
+    elements.questionJump.addEventListener('change',event=>{state.index=Number(event.target.value);state.revealed=false;render();elements.card.scrollIntoView({behavior:'smooth',block:'start'})});
+    elements.filterToggle.addEventListener('click',()=>{const expanded=elements.panel.classList.toggle('expanded');elements.filterToggle.setAttribute('aria-expanded',String(expanded));elements.filterToggleText.textContent=expanded?'收起 ↑':'展开 ↓'});
     elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;ratings[q.id]=value;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));render();queueCloudSync()});
     elements.notesText.addEventListener('input',()=>{const q=filtered()[state.index];if(!q)return;const value=elements.notesText.value;if(value.trim()){notes[q.id]=value}else{delete notes[q.id]}localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));elements.notesStatus.textContent=cloudUser?'等待同步…':'已保存到本机';queueCloudSync();});
     elements.exportNotes.addEventListener('click',()=>{const payload={version:1,exportedAt:new Date().toISOString(),notes};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='嵌入式面试题个人笔记.json';link.click();URL.revokeObjectURL(link.href)});
