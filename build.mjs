@@ -220,12 +220,24 @@ const html = String.raw`<!doctype html>
     .reveal { align-self:flex-start; border:0; border-radius:13px; padding:13px 20px; background:var(--ink); color:white; font-weight:800; box-shadow:0 7px 18px rgba(23,32,51,.18); }
     .answer { display:none; margin-top:24px; padding-top:24px; border-top:1px solid var(--line); font-size:16px; line-height:1.85; animation:fade .2s ease; }
     .answer.open { display:block; }
+    .answer-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .answer-heading strong { font-size:14px; color:#40516e; }
+    .answer-action { border:1px solid #b9c9e5; border-radius:10px; padding:8px 12px; background:#f3f7ff; color:#315b9d; font-weight:800; }
     .answer p:first-child { margin-top:0; }
     .answer code { font-family:Consolas,monospace; background:#eff2f5; border-radius:5px; padding:.12em .32em; font-size:.92em; }
     .answer pre { overflow:auto; padding:16px; color:#e7edf7; background:#172033; border-radius:12px; line-height:1.55; }
     .answer pre code { background:transparent; padding:0; }
     .answer blockquote { margin:1em 0; padding:10px 16px; border-left:4px solid #9db9ed; background:#f2f6fd; color:#44516a; }
     .answer li { margin:.35em 0; }
+    .custom-answer { margin-top:22px; padding:18px; border:1px solid #cddbf4; border-radius:14px; background:#f5f8ff; }
+    .custom-answer-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .custom-answer-title { font-size:14px; font-weight:800; color:#315b9d; }
+    .custom-answer-status { color:var(--muted); font-size:12px; }
+    .custom-answer-display { white-space:pre-wrap; overflow-wrap:anywhere; }
+    .custom-answer textarea { display:block; min-height:180px; resize:vertical; font:inherit; line-height:1.65; }
+    .custom-answer-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+    .custom-answer-actions button { border:1px solid var(--line); border-radius:9px; padding:8px 11px; background:#fff; color:#465066; font-weight:700; }
+    .custom-answer-actions .done { border-color:var(--blue); color:#fff; background:var(--blue); }
     .spacer { flex:1; min-height:28px; }
     .rating { display:none; margin-top:22px; gap:9px; flex-wrap:wrap; }
     .rating.open { display:flex; }
@@ -265,7 +277,7 @@ const html = String.raw`<!doctype html>
     .empty { margin:auto; text-align:center; color:var(--muted); }
     .kbd { border:1px solid #cfd5de; border-bottom-width:2px; border-radius:5px; padding:1px 5px; background:#fff; color:#606b7e; font-size:11px; }
     @keyframes fade { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:none } }
-    @media (max-width:780px) { .app{width:min(100% - 20px,680px);padding-top:16px} header{align-items:flex-start;flex-direction:column;margin-bottom:14px}.progress-box{width:100%;text-align:left}.layout{grid-template-columns:1fr;gap:12px}.panel{position:static;padding:12px 14px;border-radius:16px}.filter-toggle{display:flex}.panel-body{display:none;margin-top:16px}.panel.expanded .panel-body{display:block}.bank-tabs{grid-template-columns:1fr 1fr}.card{min-height:520px;padding:22px;border-radius:18px}.question{margin:21px 0}.question-jump{width:100%;margin-left:0}.question-jump select{width:auto;min-width:0;flex:1}.position{margin-left:0;width:100%;order:-1}.nav{flex-wrap:wrap}.nav button{flex:1}.nav .random{flex-basis:100%} }
+    @media (max-width:780px) { .app{width:min(100% - 20px,680px);padding-top:16px} header{align-items:flex-start;flex-direction:column;margin-bottom:14px}.progress-box{width:100%;text-align:left}.layout{grid-template-columns:1fr;gap:12px}.panel{position:static;padding:12px 14px;border-radius:16px}.filter-toggle{display:flex}.panel-body{display:none;margin-top:16px}.panel.expanded .panel-body{display:block}.bank-tabs{grid-template-columns:1fr 1fr}.card{min-height:520px;padding:22px;border-radius:18px}.question{margin:21px 0}.question-jump{width:100%;margin-left:0}.question-jump select{width:auto;min-width:0;flex:1}.answer-heading,.custom-answer-head{align-items:flex-start;flex-direction:column}.answer-action{width:100%}.position{margin-left:0;width:100%;order:-1}.nav{flex-wrap:wrap}.nav button{flex:1}.nav .random{flex-basis:100%} }
     @media print { body{background:white}.panel,header,.nav,.reveal,.rating,.notes{display:none!important}.layout{display:block}.card{box-shadow:none;border:0;padding:0}.answer{display:block}.question{font-size:24px} }
   </style>
 </head>
@@ -287,7 +299,7 @@ const html = String.raw`<!doctype html>
         <div class="field"><label for="starSelect">重要程度</label><select id="starSelect"><option value="0">全部星级</option><option value="5">★★★★★ 五星必问</option><option value="4">★★★★ 四星高频</option><option value="3">★★★ 三星常见</option><option value="2">★★ 两星</option><option value="1">★ 一星</option></select></div>
         <div class="field"><label for="statusSelect">掌握状态</label><select id="statusSelect"><option value="all">全部状态</option><option value="unrated">尚未标记</option><option value="again">不会</option><option value="fuzzy">模糊</option><option value="know">会</option></select></div>
         <div class="field"><label for="searchInput">搜索题目和答案</label><input id="searchInput" type="search" placeholder="例如：优先级反转"></div>
-        <div class="field"><label>个人笔记备份</label><div class="data-actions"><button id="exportNotes" type="button">导出笔记</button><button id="importNotes" type="button">导入笔记</button></div><input id="notesFile" type="file" accept="application/json,.json" hidden></div>
+        <div class="field"><label>个人数据备份</label><div class="data-actions"><button id="exportNotes" type="button">导出数据</button><button id="importNotes" type="button">导入数据</button></div><input id="notesFile" type="file" accept="application/json,.json" hidden></div>
         <div class="summary" id="filterSummary"></div>
         </div>
       </aside>
@@ -296,7 +308,7 @@ const html = String.raw`<!doctype html>
           <div class="meta"><span class="tag" id="sectionTag"></span><span class="tag" id="reviewTag" hidden></span><span id="bankName"></span><span class="stars" id="stars"></span><label class="question-jump" id="questionJumpWrap" hidden><span>本日题目</span><select id="questionJump" aria-label="选择本日第几题"></select></label></div>
           <h2 class="question" id="question"></h2>
           <button class="reveal" id="revealButton" type="button">查看答案 <span class="kbd">空格</span></button>
-          <div class="answer" id="answer"></div>
+          <div class="answer" id="answerWrap"><div class="answer-heading"><strong>参考答案</strong><button class="answer-action" id="editAnswerButton" type="button">写我的答案</button></div><div id="answer"></div><section class="custom-answer" id="customAnswer" hidden><div class="custom-answer-head"><span class="custom-answer-title">我的答案</span><span class="custom-answer-status" id="customAnswerStatus"></span></div><div class="custom-answer-display" id="customAnswerDisplay"></div><div id="customAnswerEditor" hidden><textarea id="customAnswerText" placeholder="写下你自己的答案。登录后会自动同步到手机和电脑……"></textarea><div class="custom-answer-actions"><button id="clearCustomAnswer" type="button">清除我的答案</button><button class="done" id="finishCustomAnswer" type="button">完成编辑</button></div></div></section></div>
           <div class="rating" id="rating"><button class="rate" data-value="again">不会</button><button class="rate" data-value="fuzzy">模糊</button><button class="rate" data-value="know">会</button></div>
           <div class="notes"><div class="notes-head"><span class="notes-title">个人笔记</span><span class="notes-status" id="notesStatus">自动保存在此浏览器</span></div><textarea id="notesText" placeholder="写下自己的理解、易错点或需要追问的内容……"></textarea></div>
           <div class="spacer"></div>
@@ -306,7 +318,7 @@ const html = String.raw`<!doctype html>
       </section>
     </div>
   </main>
-  <dialog id="authDialog"><div class="auth-wrap"><div class="auth-head"><div><h2>账号与云同步</h2><p>使用邮箱注册或登录，同步答题状态、复习计划和个人笔记。</p></div><button class="dialog-close" id="authClose" type="button" aria-label="关闭">×</button></div><div id="authFields"><div class="auth-field"><label for="authEmail">邮箱</label><input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com"></div><div class="auth-field"><label for="authPassword">密码</label><input id="authPassword" type="password" minlength="6" autocomplete="current-password" placeholder="至少 6 位"></div><div class="auth-actions"><button class="auth-primary" id="signInButton" type="button">登录</button><button id="signUpButton" type="button">注册</button></div></div><div id="signedFields" hidden><div class="signed-user">已登录：<strong id="signedEmail"></strong></div><div class="signed-actions"><button class="auth-primary" id="syncNowButton" type="button">立即同步</button><button id="signOutButton" type="button">退出登录</button></div></div><p class="auth-message" id="authMessage"></p></div></dialog>
+  <dialog id="authDialog"><div class="auth-wrap"><div class="auth-head"><div><h2>账号与云同步</h2><p>使用邮箱注册或登录，同步答题状态、复习计划、我的答案和个人笔记。</p></div><button class="dialog-close" id="authClose" type="button" aria-label="关闭">×</button></div><div id="authFields"><div class="auth-field"><label for="authEmail">邮箱</label><input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com"></div><div class="auth-field"><label for="authPassword">密码</label><input id="authPassword" type="password" minlength="6" autocomplete="current-password" placeholder="至少 6 位"></div><div class="auth-actions"><button class="auth-primary" id="signInButton" type="button">登录</button><button id="signUpButton" type="button">注册</button></div></div><div id="signedFields" hidden><div class="signed-user">已登录：<strong id="signedEmail"></strong></div><div class="signed-actions"><button class="auth-primary" id="syncNowButton" type="button">立即同步</button><button id="signOutButton" type="button">退出登录</button></div></div><p class="auth-message" id="authMessage"></p></div></dialog>
   <script src="https://unpkg.com/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
   <script>
     const SUPABASE_URL = 'https://vvixekimlcyrrfinyeep.supabase.co';
@@ -316,11 +328,12 @@ const html = String.raw`<!doctype html>
     const allQuestions = BANKS.flatMap(bank => bank.questions);
     const savedPlanDays = Number(localStorage.getItem('embedded-interview-plan-days-v1')) || 14;
     const savedPlanDay = Number(localStorage.getItem('embedded-interview-plan-day-v1')) || 1;
-    const state = { bank:'software', mode:'all', planDays:[7,14,21,30].includes(savedPlanDays) ? savedPlanDays : 14, planDay:savedPlanDay, section:'all', stars:0, status:'all', search:'', index:0, revealed:false };
+    const state = { bank:'software', mode:'all', planDays:[7,14,21,30].includes(savedPlanDays) ? savedPlanDays : 14, planDay:savedPlanDay, section:'all', stars:0, status:'all', search:'', index:0, revealed:false, editingAnswer:false };
     function storedObject(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
     const ratings = storedObject('embedded-interview-ratings-v1');
     const reviewSchedule = storedObject('embedded-interview-review-schedule-v1');
     const notes = storedObject('embedded-interview-notes-v1');
+    const customAnswers = storedObject('embedded-interview-custom-answers-v1');
     let migratedReviewSchedule = false;
     allQuestions.forEach(q => {
       if (!reviewSchedule[q.id] && (ratings[q.id] === 'again' || ratings[q.id] === 'fuzzy')) {
@@ -330,21 +343,22 @@ const html = String.raw`<!doctype html>
     });
     if (migratedReviewSchedule) localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
     const $ = id => document.getElementById(id);
-    const elements = { panel:$('panel'), filterToggle:$('filterToggle'), filterToggleText:$('filterToggleText'), panelBody:$('panelBody'), tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), questionJumpWrap:$('questionJumpWrap'), questionJump:$('questionJump'), question:$('question'), reveal:$('revealButton'), answer:$('answer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText'), syncDot:$('syncDot'), syncTitle:$('syncTitle'), syncDetail:$('syncDetail'), accountButton:$('accountButton'), authDialog:$('authDialog'), authClose:$('authClose'), authFields:$('authFields'), authEmail:$('authEmail'), authPassword:$('authPassword'), signIn:$('signInButton'), signUp:$('signUpButton'), signedFields:$('signedFields'), signedEmail:$('signedEmail'), syncNow:$('syncNowButton'), signOut:$('signOutButton'), authMessage:$('authMessage') };
+    const elements = { panel:$('panel'), filterToggle:$('filterToggle'), filterToggleText:$('filterToggleText'), panelBody:$('panelBody'), tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), questionJumpWrap:$('questionJumpWrap'), questionJump:$('questionJump'), question:$('question'), reveal:$('revealButton'), answerWrap:$('answerWrap'), answer:$('answer'), editAnswer:$('editAnswerButton'), customAnswer:$('customAnswer'), customAnswerDisplay:$('customAnswerDisplay'), customAnswerEditor:$('customAnswerEditor'), customAnswerText:$('customAnswerText'), customAnswerStatus:$('customAnswerStatus'), clearCustomAnswer:$('clearCustomAnswer'), finishCustomAnswer:$('finishCustomAnswer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText'), syncDot:$('syncDot'), syncTitle:$('syncTitle'), syncDetail:$('syncDetail'), accountButton:$('accountButton'), authDialog:$('authDialog'), authClose:$('authClose'), authFields:$('authFields'), authEmail:$('authEmail'), authPassword:$('authPassword'), signIn:$('signInButton'), signUp:$('signUpButton'), signedFields:$('signedFields'), signedEmail:$('signedEmail'), syncNow:$('syncNowButton'), signOut:$('signOutButton'), authMessage:$('authMessage') };
     const cloud = window.supabase ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
     let cloudUser = null;
     let loadedCloudUser = '';
     let syncTimer = 0;
 
     function replaceObject(target,source) { Object.keys(target).forEach(key=>delete target[key]); Object.assign(target,source&&typeof source==='object'&&!Array.isArray(source)?source:{}); }
-    function localSnapshot() { return {version:1,ratings:{...ratings},reviewSchedule:{...reviewSchedule},notes:{...notes},planDays:state.planDays,planDay:state.planDay}; }
+    function localSnapshot() { return {version:2,ratings:{...ratings},reviewSchedule:{...reviewSchedule},notes:{...notes},customAnswers:{...customAnswers},planDays:state.planDays,planDay:state.planDay}; }
     function persistSnapshot(data) {
-      replaceObject(ratings,data.ratings); replaceObject(reviewSchedule,data.reviewSchedule); replaceObject(notes,data.notes);
+      replaceObject(ratings,data.ratings); replaceObject(reviewSchedule,data.reviewSchedule); replaceObject(notes,data.notes); replaceObject(customAnswers,data.customAnswers);
       if ([7,14,21,30].includes(Number(data.planDays))) state.planDays=Number(data.planDays);
       if (Number.isInteger(Number(data.planDay))) state.planDay=Math.max(1,Math.min(state.planDays,Number(data.planDay)));
       localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));
       localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
       localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));
+      localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));
       localStorage.setItem('embedded-interview-plan-days-v1',String(state.planDays));
       localStorage.setItem('embedded-interview-plan-day-v1',String(state.planDay));
       populatePlanDays(); render();
@@ -357,6 +371,7 @@ const html = String.raw`<!doctype html>
       elements.accountButton.textContent=signedIn?'账号与同步':'登录并同步';
       elements.accountButton.disabled=!cloud;
       if (!signedIn) setSyncStatus('仅保存在本机',cloud?'登录后可在电脑和手机之间同步学习记录。':'云同步组件加载失败，本地功能不受影响。',cloud?'':'error');
+      render();
     }
     async function pushCloud(showMessage=false) {
       if (!cloud||!cloudUser) return;
@@ -365,6 +380,7 @@ const html = String.raw`<!doctype html>
       if (error) { setSyncStatus('同步失败','记录仍已保存在本机：'+error.message,'error');if(showMessage)elements.authMessage.textContent='同步失败：'+error.message;return; }
       setSyncStatus('已同步',cloudUser.email+' · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),'online');
       elements.notesStatus.textContent='已保存并同步';
+      if (customAnswers[filtered()[state.index]?.id]) elements.customAnswerStatus.textContent='已保存并同步';
       if(showMessage)elements.authMessage.textContent='同步完成。';
     }
     function queueCloudSync() { if(!cloudUser)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud(false),700); }
@@ -375,7 +391,7 @@ const html = String.raw`<!doctype html>
       if (error) { setSyncStatus('同步失败','本机记录不受影响：'+error.message,'error');return; }
       if (!data) { await pushCloud(false);return; }
       const local=localSnapshot(),remote=data.data||{};
-      persistSnapshot({version:1,ratings:{...local.ratings,...(remote.ratings||{})},reviewSchedule:{...local.reviewSchedule,...(remote.reviewSchedule||{})},notes:{...local.notes,...(remote.notes||{})},planDays:remote.planDays||local.planDays,planDay:remote.planDay||local.planDay});
+      persistSnapshot({version:2,ratings:{...local.ratings,...(remote.ratings||{})},reviewSchedule:{...local.reviewSchedule,...(remote.reviewSchedule||{})},notes:{...local.notes,...(remote.notes||{})},customAnswers:{...local.customAnswers,...(remote.customAnswers||{})},planDays:remote.planDays||local.planDays,planDay:remote.planDay||local.planDay});
       await pushCloud(false);
     }
     async function handleSession(session) {
@@ -431,7 +447,7 @@ const html = String.raw`<!doctype html>
         (state.section === 'all' || q.section === state.section) &&
         (!state.stars || q.stars === state.stars) &&
         (state.status === 'all' || (state.status === 'unrated' ? !ratings[q.id] : ratings[q.id] === state.status)) &&
-        (!term || (q.title + ' ' + q.section + ' ' + q.answerHtml.replace(/<[^>]*>/g,' ') + ' ' + (notes[q.id] || '')).toLowerCase().includes(term))
+        (!term || (q.title + ' ' + q.section + ' ' + q.answerHtml.replace(/<[^>]*>/g,' ') + ' ' + (customAnswers[q.id] || '') + ' ' + (notes[q.id] || '')).toLowerCase().includes(term))
       );
     }
     function populateSections() {
@@ -485,9 +501,18 @@ const html = String.raw`<!doctype html>
       elements.starText.textContent = '★'.repeat(q.stars);
       elements.question.textContent = q.title;
       elements.answer.innerHTML = q.answerHtml;
+      const customAnswer = customAnswers[q.id] || '';
+      elements.editAnswer.textContent = customAnswer ? '编辑我的答案' : '写我的答案';
+      elements.customAnswer.hidden = !customAnswer && !state.editingAnswer;
+      elements.customAnswerDisplay.hidden = state.editingAnswer || !customAnswer;
+      elements.customAnswerEditor.hidden = !state.editingAnswer;
+      elements.customAnswerDisplay.textContent = customAnswer;
+      if (document.activeElement !== elements.customAnswerText) elements.customAnswerText.value = customAnswer;
+      elements.clearCustomAnswer.hidden = !customAnswer;
+      elements.customAnswerStatus.textContent = cloudUser ? (customAnswer ? '已保存并同步' : '云同步已开启') : (customAnswer ? '已保存到本机' : '自动保存在此浏览器');
       elements.notesText.value = notes[q.id] || '';
       elements.notesStatus.textContent = cloudUser ? (notes[q.id] ? '已保存并同步' : '云同步已开启') : (notes[q.id] ? '已保存到本机' : '自动保存在此浏览器');
-      elements.answer.classList.toggle('open',state.revealed);
+      elements.answerWrap.classList.toggle('open',state.revealed);
       elements.rating.classList.toggle('open',state.revealed);
       elements.reveal.innerHTML = state.revealed ? '收起答案 <span class="kbd">空格</span>' : '查看答案 <span class="kbd">空格</span>';
       elements.previous.disabled = state.index === 0;
@@ -495,8 +520,8 @@ const html = String.raw`<!doctype html>
       elements.position.textContent = (state.index + 1) + ' / ' + list.length;
       document.querySelectorAll('.rate').forEach(btn => btn.classList.toggle('selected',ratings[q.id] === btn.dataset.value));
     }
-    function resetQuestion() { state.index = 0; state.revealed = false; render(); }
-    function move(delta) { const list = filtered(); state.index = Math.max(0,Math.min(list.length - 1,state.index + delta)); state.revealed = false; render(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function resetQuestion() { state.index = 0; state.revealed = false; state.editingAnswer = false; render(); }
+    function move(delta) { const list = filtered(); state.index = Math.max(0,Math.min(list.length - 1,state.index + delta)); state.revealed = false; state.editingAnswer = false; render(); window.scrollTo({top:0,behavior:'smooth'}); }
     elements.tabs.addEventListener('click', event => { const btn=event.target.closest('[data-bank]'); if(!btn)return; state.bank=btn.dataset.bank; state.section='all'; populateSections(); populatePlanDays(); resetQuestion(); });
     elements.mode.addEventListener('change',e=>{state.mode=e.target.value;if(state.mode==='review'){state.status='all';elements.status.value='all'}resetQuestion()});
     elements.planDays.addEventListener('change',e=>{state.planDays=Number(e.target.value);state.planDay=1;localStorage.setItem('embedded-interview-plan-days-v1',String(state.planDays));localStorage.setItem('embedded-interview-plan-day-v1','1');populatePlanDays();resetQuestion();queueCloudSync()});
@@ -508,14 +533,18 @@ const html = String.raw`<!doctype html>
     elements.reveal.addEventListener('click',()=>{state.revealed=!state.revealed;render()});
     elements.previous.addEventListener('click',()=>move(-1));
     elements.next.addEventListener('click',()=>move(1));
-    elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;render()}});
-    elements.questionJump.addEventListener('change',event=>{state.index=Number(event.target.value);state.revealed=false;render();elements.card.scrollIntoView({behavior:'smooth',block:'start'})});
+    elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;state.editingAnswer=false;render()}});
+    elements.questionJump.addEventListener('change',event=>{state.index=Number(event.target.value);state.revealed=false;state.editingAnswer=false;render();elements.card.scrollIntoView({behavior:'smooth',block:'start'})});
     elements.filterToggle.addEventListener('click',()=>{const expanded=elements.panel.classList.toggle('expanded');elements.filterToggle.setAttribute('aria-expanded',String(expanded));elements.filterToggleText.textContent=expanded?'收起 ↑':'展开 ↓'});
     elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;ratings[q.id]=value;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));render();queueCloudSync()});
+    elements.editAnswer.addEventListener('click',()=>{state.editingAnswer=true;render();requestAnimationFrame(()=>{elements.customAnswerText.focus();elements.customAnswerText.setSelectionRange(elements.customAnswerText.value.length,elements.customAnswerText.value.length)})});
+    elements.customAnswerText.addEventListener('input',()=>{const q=filtered()[state.index];if(!q)return;const value=elements.customAnswerText.value;if(value.trim()){customAnswers[q.id]=value}else{delete customAnswers[q.id]}localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));elements.customAnswerStatus.textContent=cloudUser?'等待同步…':'已保存到本机';elements.clearCustomAnswer.hidden=!value.trim();queueCloudSync()});
+    elements.finishCustomAnswer.addEventListener('click',()=>{state.editingAnswer=false;render()});
+    elements.clearCustomAnswer.addEventListener('click',()=>{const q=filtered()[state.index];if(!q||!customAnswers[q.id])return;if(!confirm('确定清除这道题的“我的答案”吗？原参考答案不会受影响。'))return;delete customAnswers[q.id];localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));state.editingAnswer=false;render();queueCloudSync()});
     elements.notesText.addEventListener('input',()=>{const q=filtered()[state.index];if(!q)return;const value=elements.notesText.value;if(value.trim()){notes[q.id]=value}else{delete notes[q.id]}localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));elements.notesStatus.textContent=cloudUser?'等待同步…':'已保存到本机';queueCloudSync();});
-    elements.exportNotes.addEventListener('click',()=>{const payload={version:1,exportedAt:new Date().toISOString(),notes};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='嵌入式面试题个人笔记.json';link.click();URL.revokeObjectURL(link.href)});
+    elements.exportNotes.addEventListener('click',()=>{const payload={version:2,exportedAt:new Date().toISOString(),notes,customAnswers};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='嵌入式面试题个人数据.json';link.click();URL.revokeObjectURL(link.href)});
     elements.importNotes.addEventListener('click',()=>elements.notesFile.click());
-    elements.notesFile.addEventListener('change',async()=>{const file=elements.notesFile.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const imported=parsed && parsed.notes && typeof parsed.notes==='object' ? parsed.notes : parsed;if(!imported || Array.isArray(imported) || typeof imported!=='object')throw new Error('格式错误');Object.keys(notes).forEach(key=>delete notes[key]);Object.entries(imported).forEach(([key,value])=>{if(typeof value==='string'&&value.trim())notes[key]=value});localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));render();queueCloudSync();alert('已导入 '+Object.keys(notes).length+' 条个人笔记。')}catch(error){alert('导入失败：请选择由本网页导出的 JSON 笔记文件。')}finally{elements.notesFile.value=''}});
+    elements.notesFile.addEventListener('change',async()=>{const file=elements.notesFile.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());const importedNotes=parsed && parsed.notes && typeof parsed.notes==='object' ? parsed.notes : parsed;const hasImportedAnswers=Boolean(parsed && parsed.customAnswers && typeof parsed.customAnswers==='object');const importedAnswers=hasImportedAnswers?parsed.customAnswers:{};if(!importedNotes || Array.isArray(importedNotes) || typeof importedNotes!=='object')throw new Error('格式错误');replaceObject(notes,Object.fromEntries(Object.entries(importedNotes).filter(([,value])=>typeof value==='string'&&value.trim())));if(hasImportedAnswers)replaceObject(customAnswers,Object.fromEntries(Object.entries(importedAnswers).filter(([,value])=>typeof value==='string'&&value.trim())));localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));render();queueCloudSync();alert('已导入 '+Object.keys(notes).length+' 条个人笔记和 '+Object.keys(customAnswers).length+' 条“我的答案”。')}catch(error){alert('导入失败：请选择由本网页导出的 JSON 数据文件。')}finally{elements.notesFile.value=''}});
     elements.accountButton.addEventListener('click',()=>{elements.authMessage.textContent='';elements.authDialog.showModal()});
     elements.authClose.addEventListener('click',()=>elements.authDialog.close());
     elements.authDialog.addEventListener('click',event=>{if(event.target===elements.authDialog)elements.authDialog.close()});
