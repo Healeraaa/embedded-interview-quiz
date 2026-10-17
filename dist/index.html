@@ -131,7 +131,7 @@
         <div class="field"><label for="sectionSelect">章节</label><select id="sectionSelect"></select></div>
         <div class="field"><label for="starSelect">重要程度</label><select id="starSelect"><option value="0">全部星级</option><option value="5">★★★★★ 五星必问</option><option value="4">★★★★ 四星高频</option><option value="3">★★★ 三星常见</option><option value="2">★★ 两星</option><option value="1">★ 一星</option></select></div>
         <div class="field"><label for="statusSelect">掌握状态</label><select id="statusSelect"><option value="all">全部状态</option><option value="unrated">尚未标记</option><option value="again">不会</option><option value="fuzzy">模糊</option><option value="know">会</option></select></div>
-        <div class="field"><label for="searchInput">搜索题目和答案</label><input id="searchInput" type="search" placeholder="例如：优先级反转"></div>
+        <div class="field"><label for="searchInput">搜索题目和答案</label><input id="searchInput" name="question-filter" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore placeholder="例如：优先级反转"></div>
         <div class="field"><label>个人数据备份</label><div class="data-actions"><button id="exportNotes" type="button">导出数据</button><button id="importNotes" type="button">导入数据</button></div><input id="notesFile" type="file" accept="application/json,.json" hidden></div>
         <div class="summary" id="filterSummary"></div>
         </div>
@@ -197,6 +197,8 @@
       populatePlanDays(); render();
     }
     function setSyncStatus(title,detail,kind) { elements.syncTitle.textContent=title;elements.syncDetail.textContent=detail;elements.syncDot.className='sync-dot'+(kind?' '+kind:''); }
+    function isMisfilledAccountEmail(value) { return Boolean(cloudUser&&cloudUser.email&&value.trim().toLowerCase()===cloudUser.email.trim().toLowerCase()); }
+    function clearMisfilledSearch() { if(!isMisfilledAccountEmail(elements.search.value))return false;elements.search.value='';state.search='';return true; }
     function updateAccountUI() {
       const signedIn=Boolean(cloudUser);
       elements.authFields.hidden=signedIn; elements.signedFields.hidden=!signedIn;
@@ -204,6 +206,7 @@
       elements.accountButton.textContent=signedIn?'账号与同步':'登录并同步';
       elements.accountButton.disabled=!cloud;
       if (!signedIn) setSyncStatus('仅保存在本机',cloud?'登录后可在电脑和手机之间同步学习记录。':'云同步组件加载失败，本地功能不受影响。',cloud?'':'error');
+      clearMisfilledSearch();
       render();
     }
     async function pushCloud(showMessage=false) {
@@ -230,6 +233,7 @@
     async function handleSession(session) {
       cloudUser=session&&session.user?session.user:null;updateAccountUI();
       if(cloudUser&&loadedCloudUser!==cloudUser.id){loadedCloudUser=cloudUser.id;await pullCloud();}
+      if(cloudUser)setTimeout(()=>{if(clearMisfilledSearch())resetQuestion()},600);
       if(!cloudUser)loadedCloudUser='';
     }
 
@@ -362,7 +366,7 @@
     elements.section.addEventListener('change',e=>{state.section=e.target.value;resetQuestion()});
     elements.stars.addEventListener('change',e=>{state.stars=Number(e.target.value);resetQuestion()});
     elements.status.addEventListener('change',e=>{state.status=e.target.value;resetQuestion()});
-    elements.search.addEventListener('input',e=>{state.search=e.target.value;resetQuestion()});
+    elements.search.addEventListener('input',e=>{if(isMisfilledAccountEmail(e.target.value)){e.target.value='';state.search='';resetQuestion();return}state.search=e.target.value;resetQuestion()});
     elements.reveal.addEventListener('click',()=>{state.revealed=!state.revealed;render()});
     elements.previous.addEventListener('click',()=>move(-1));
     elements.next.addEventListener('click',()=>move(1));
