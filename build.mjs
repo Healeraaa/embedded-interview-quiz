@@ -332,16 +332,25 @@ const html = String.raw`<!doctype html>
     function storedObject(key) { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
     const ratings = storedObject('embedded-interview-ratings-v1');
     const reviewSchedule = storedObject('embedded-interview-review-schedule-v1');
+    const ratingUpdatedAt = storedObject('embedded-interview-rating-updated-at-v1');
+    const reviewUpdatedAt = storedObject('embedded-interview-review-updated-at-v1');
     const notes = storedObject('embedded-interview-notes-v1');
     const customAnswers = storedObject('embedded-interview-custom-answers-v1');
     let migratedReviewSchedule = false;
     allQuestions.forEach(q => {
+      if (ratings[q.id] === 'know' && reviewSchedule[q.id]) {
+        const migratedAt=Date.now();
+        delete reviewSchedule[q.id];
+        ratingUpdatedAt[q.id]=Math.max(Number(ratingUpdatedAt[q.id])||0,migratedAt);
+        reviewUpdatedAt[q.id]=Math.max(Number(reviewUpdatedAt[q.id])||0,migratedAt);
+        migratedReviewSchedule = true;
+      }
       if (!reviewSchedule[q.id] && (ratings[q.id] === 'again' || ratings[q.id] === 'fuzzy')) {
         reviewSchedule[q.id] = { rating:ratings[q.id], dueDay:ratings[q.id] === 'again' ? 2 : 4 };
         migratedReviewSchedule = true;
       }
     });
-    if (migratedReviewSchedule) localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
+    if (migratedReviewSchedule) { localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));localStorage.setItem('embedded-interview-rating-updated-at-v1',JSON.stringify(ratingUpdatedAt));localStorage.setItem('embedded-interview-review-updated-at-v1',JSON.stringify(reviewUpdatedAt)); }
     const $ = id => document.getElementById(id);
     const elements = { panel:$('panel'), filterToggle:$('filterToggle'), filterToggleText:$('filterToggleText'), panelBody:$('panelBody'), tabs:$('bankTabs'), mode:$('modeSelect'), planControls:$('planControls'), planDays:$('planDays'), planDay:$('planDay'), section:$('sectionSelect'), stars:$('starSelect'), status:$('statusSelect'), search:$('searchInput'), summary:$('filterSummary'), tag:$('sectionTag'), reviewTag:$('reviewTag'), bank:$('bankName'), starText:$('stars'), questionJumpWrap:$('questionJumpWrap'), questionJump:$('questionJump'), question:$('question'), reveal:$('revealButton'), answerWrap:$('answerWrap'), answer:$('answer'), editAnswer:$('editAnswerButton'), customAnswer:$('customAnswer'), customAnswerDisplay:$('customAnswerDisplay'), customAnswerEditor:$('customAnswerEditor'), customAnswerText:$('customAnswerText'), customAnswerStatus:$('customAnswerStatus'), clearCustomAnswer:$('clearCustomAnswer'), finishCustomAnswer:$('finishCustomAnswer'), rating:$('rating'), notesText:$('notesText'), notesStatus:$('notesStatus'), exportNotes:$('exportNotes'), importNotes:$('importNotes'), notesFile:$('notesFile'), previous:$('previousButton'), next:$('nextButton'), random:$('randomButton'), position:$('position'), progressText:$('progressText'), progressFill:$('progressFill'), card:$('card'), quiz:$('quiz'), empty:$('empty'), emptyTitle:$('emptyTitle'), emptyText:$('emptyText'), syncDot:$('syncDot'), syncTitle:$('syncTitle'), syncDetail:$('syncDetail'), accountButton:$('accountButton'), authDialog:$('authDialog'), authClose:$('authClose'), authFields:$('authFields'), authEmail:$('authEmail'), authPassword:$('authPassword'), signIn:$('signInButton'), signUp:$('signUpButton'), signedFields:$('signedFields'), signedEmail:$('signedEmail'), syncNow:$('syncNowButton'), signOut:$('signOutButton'), authMessage:$('authMessage') };
     const cloud = window.supabase ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY) : null;
@@ -350,13 +359,15 @@ const html = String.raw`<!doctype html>
     let syncTimer = 0;
 
     function replaceObject(target,source) { Object.keys(target).forEach(key=>delete target[key]); Object.assign(target,source&&typeof source==='object'&&!Array.isArray(source)?source:{}); }
-    function localSnapshot() { return {version:2,ratings:{...ratings},reviewSchedule:{...reviewSchedule},notes:{...notes},customAnswers:{...customAnswers},planDays:state.planDays,planDay:state.planDay}; }
+    function localSnapshot() { return {version:3,ratings:{...ratings},reviewSchedule:{...reviewSchedule},ratingUpdatedAt:{...ratingUpdatedAt},reviewUpdatedAt:{...reviewUpdatedAt},notes:{...notes},customAnswers:{...customAnswers},planDays:state.planDays,planDay:state.planDay}; }
     function persistSnapshot(data) {
-      replaceObject(ratings,data.ratings); replaceObject(reviewSchedule,data.reviewSchedule); replaceObject(notes,data.notes); replaceObject(customAnswers,data.customAnswers);
+      replaceObject(ratings,data.ratings); replaceObject(reviewSchedule,data.reviewSchedule); replaceObject(ratingUpdatedAt,data.ratingUpdatedAt); replaceObject(reviewUpdatedAt,data.reviewUpdatedAt); replaceObject(notes,data.notes); replaceObject(customAnswers,data.customAnswers);
       if ([7,14,21,30].includes(Number(data.planDays))) state.planDays=Number(data.planDays);
       if (Number.isInteger(Number(data.planDay))) state.planDay=Math.max(1,Math.min(state.planDays,Number(data.planDay)));
       localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));
       localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));
+      localStorage.setItem('embedded-interview-rating-updated-at-v1',JSON.stringify(ratingUpdatedAt));
+      localStorage.setItem('embedded-interview-review-updated-at-v1',JSON.stringify(reviewUpdatedAt));
       localStorage.setItem('embedded-interview-notes-v1',JSON.stringify(notes));
       localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));
       localStorage.setItem('embedded-interview-plan-days-v1',String(state.planDays));
@@ -386,7 +397,39 @@ const html = String.raw`<!doctype html>
       if (customAnswers[filtered()[state.index]?.id]) elements.customAnswerStatus.textContent='已保存并同步';
       if(showMessage)elements.authMessage.textContent='同步完成。';
     }
-    function queueCloudSync() { if(!cloudUser)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud(false),700); }
+    function queueCloudSync(delay=700) { if(!cloudUser)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud(false),delay); }
+    function mergeRatings(local,remote,localTimes,remoteTimes) {
+      const values={},times={};
+      const keys=new Set([...Object.keys(local||{}),...Object.keys(remote||{}),...Object.keys(localTimes||{}),...Object.keys(remoteTimes||{})]);
+      keys.forEach(key=>{
+        const localValue=local?.[key],remoteValue=remote?.[key];
+        const localTime=Number(localTimes?.[key])||0,remoteTime=Number(remoteTimes?.[key])||0;
+        let value;
+        if(localValue===undefined)value=remoteValue;
+        else if(remoteValue===undefined)value=localValue;
+        else if(localTime>remoteTime)value=localValue;
+        else if(remoteTime>localTime)value=remoteValue;
+        else if(localValue==='know'||remoteValue==='know')value='know';
+        else value=remoteValue;
+        if(value!==undefined)values[key]=value;
+        if(localTime||remoteTime)times[key]=Math.max(localTime,remoteTime);
+      });
+      return {values,times};
+    }
+    function mergeReviews(local,remote,localTimes,remoteTimes,mergedRatings) {
+      const values={},times={};
+      const keys=new Set([...Object.keys(local||{}),...Object.keys(remote||{}),...Object.keys(localTimes||{}),...Object.keys(remoteTimes||{}),...Object.keys(mergedRatings||{})]);
+      keys.forEach(key=>{
+        const localTime=Number(localTimes?.[key])||0,remoteTime=Number(remoteTimes?.[key])||0;
+        let value;
+        if(localTime>remoteTime)value=local?.[key];
+        else if(remoteTime>localTime)value=remote?.[key];
+        else value=remote?.[key]??local?.[key];
+        if(mergedRatings[key]!=='know'&&value)values[key]=value;
+        if(localTime||remoteTime)times[key]=Math.max(localTime,remoteTime);
+      });
+      return {values,times};
+    }
     async function pullCloud() {
       if (!cloud||!cloudUser) return;
       setSyncStatus('正在同步…','正在读取云端学习记录。','online');
@@ -394,7 +437,9 @@ const html = String.raw`<!doctype html>
       if (error) { setSyncStatus('同步失败','本机记录不受影响：'+error.message,'error');return; }
       if (!data) { await pushCloud(false);return; }
       const local=localSnapshot(),remote=data.data||{};
-      persistSnapshot({version:2,ratings:{...local.ratings,...(remote.ratings||{})},reviewSchedule:{...local.reviewSchedule,...(remote.reviewSchedule||{})},notes:{...local.notes,...(remote.notes||{})},customAnswers:{...local.customAnswers,...(remote.customAnswers||{})},planDays:remote.planDays||local.planDays,planDay:remote.planDay||local.planDay});
+      const mergedRatings=mergeRatings(local.ratings,remote.ratings||{},local.ratingUpdatedAt,remote.ratingUpdatedAt||{});
+      const mergedReviews=mergeReviews(local.reviewSchedule,remote.reviewSchedule||{},local.reviewUpdatedAt,remote.reviewUpdatedAt||{},mergedRatings.values);
+      persistSnapshot({version:3,ratings:mergedRatings.values,reviewSchedule:mergedReviews.values,ratingUpdatedAt:mergedRatings.times,reviewUpdatedAt:mergedReviews.times,notes:{...local.notes,...(remote.notes||{})},customAnswers:{...local.customAnswers,...(remote.customAnswers||{})},planDays:remote.planDays||local.planDays,planDay:remote.planDay||local.planDay});
       await pushCloud(false);
     }
     async function handleSession(session) {
@@ -540,7 +585,7 @@ const html = String.raw`<!doctype html>
     elements.random.addEventListener('click',()=>{const list=filtered();if(list.length){state.index=Math.floor(Math.random()*list.length);state.revealed=false;state.editingAnswer=false;render()}});
     elements.questionJump.addEventListener('change',event=>{state.index=Number(event.target.value);state.revealed=false;state.editingAnswer=false;render();elements.card.scrollIntoView({behavior:'smooth',block:'start'})});
     elements.filterToggle.addEventListener('click',()=>{const expanded=elements.panel.classList.toggle('expanded');elements.filterToggle.setAttribute('aria-expanded',String(expanded));elements.filterToggleText.textContent=expanded?'收起 ↑':'展开 ↓'});
-    elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;ratings[q.id]=value;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));render();queueCloudSync()});
+    elements.rating.addEventListener('click',event=>{const btn=event.target.closest('[data-value]');if(!btn)return;const q=filtered()[state.index];const value=btn.dataset.value;const updatedAt=Date.now();ratings[q.id]=value;ratingUpdatedAt[q.id]=updatedAt;reviewUpdatedAt[q.id]=updatedAt;if(value==='again'||value==='fuzzy'){const interval=value==='again'?1:3;reviewSchedule[q.id]={rating:value,dueDay:Math.min(state.planDays,state.planDay+interval)}}else{delete reviewSchedule[q.id]}localStorage.setItem('embedded-interview-ratings-v1',JSON.stringify(ratings));localStorage.setItem('embedded-interview-review-schedule-v1',JSON.stringify(reviewSchedule));localStorage.setItem('embedded-interview-rating-updated-at-v1',JSON.stringify(ratingUpdatedAt));localStorage.setItem('embedded-interview-review-updated-at-v1',JSON.stringify(reviewUpdatedAt));render();queueCloudSync(80)});
     elements.editAnswer.addEventListener('click',()=>{state.editingAnswer=true;render();requestAnimationFrame(()=>{elements.customAnswerText.focus();elements.customAnswerText.setSelectionRange(elements.customAnswerText.value.length,elements.customAnswerText.value.length)})});
     elements.customAnswerText.addEventListener('input',()=>{const q=filtered()[state.index];if(!q)return;const value=elements.customAnswerText.value;if(value.trim()){customAnswers[q.id]=value}else{delete customAnswers[q.id]}localStorage.setItem('embedded-interview-custom-answers-v1',JSON.stringify(customAnswers));elements.customAnswerStatus.textContent=cloudUser?'等待同步…':'已保存到本机';elements.clearCustomAnswer.hidden=!value.trim();queueCloudSync()});
     elements.finishCustomAnswer.addEventListener('click',()=>{state.editingAnswer=false;render()});
